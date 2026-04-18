@@ -41,8 +41,6 @@ from urllib.parse import quote_plus
 
 # set logger
 log = logging.getLogger(__name__)
-# disable unsecure SSL warning
-requests.packages.urllib3.disable_warnings()
 
 
 class TPMException(Exception):
@@ -91,39 +89,36 @@ class TpmApi(object):
         else:
             raise self.ConfigError('Invalid URL: {}'.format(base_url))
         # set headers
-        self.headers = {'Content-Type': 'application/json; charset=utf-8',
-                        'User-Agent': 'tpm.py/' + __version__
-                        }
+        self.headers = {
+            'Content-Type': 'application/json; charset=utf-8',
+            'User-Agent': 'tpm.py/' + __version__
+        }
         log.debug('Set header to {}'.format(self.headers))
         # check kwargs for either keys or user credentials
-        self.private_key = False
-        self.public_key = False
-        self.username = False
-        self.password = False
-        self.unlock_reason = False
-        for key in kwargs:
-            if key == 'private_key':
-                self.private_key = kwargs[key]
-            elif key == 'public_key':
-                self.public_key = kwargs[key]
-            elif key == 'username':
-                self.username = kwargs[key]
-            elif key == 'password':
-                self.password = kwargs[key]
-            elif key == 'unlock_reason':
-                self.unlock_reason = kwargs[key]
-        if self.private_key is not False and self.public_key is not False and\
-                self.username is False and self.password is False:
+        self.private_key = kwargs.get('private_key')
+        self.public_key = kwargs.get('public_key')
+        self.username = kwargs.get('username')
+        self.password = kwargs.get('password')
+        self.unlock_reason = kwargs.get('unlock_reason')
+        self.verify_ssl = kwargs.get('verify_ssl', True)
+        self.timeout = kwargs.get('timeout', 30)
+        self.session = kwargs.get('session') or requests.Session()
+
+        if not self.verify_ssl:
+            requests.packages.urllib3.disable_warnings()
+
+        if self.private_key and self.public_key and \
+                not self.username and not self.password:
             log.debug('Using Private/Public Key authentication.')
-        elif self.username is not False and self.password is not False and\
-                self.private_key is False and self.public_key is False:
+        elif self.username and self.password and \
+                not self.private_key and not self.public_key:
             log.debug('Using Basic authentication.')
         else:
             raise self.ConfigError('No authentication specified'
                                    ' (user/password or private/public key)')
 
 
-    def request(self, path, action, data=''):
+    def request(self, path, action, data='', headers=None, unlock_reason=None):
         """To make a request to the API."""
         # Check if the path includes URL or not.
         head = self.base_url
@@ -135,110 +130,113 @@ class TpmApi(object):
         log.debug('Using path {}'.format(path))
 
         # If we have data, convert to JSON
+        payload = None
         if data:
-            data = json.dumps(data)
-            log.debug('Data to sent: {}'.format(data))
+            payload = json.dumps(data)
         # In case of key authentication
+        request_headers = self.headers.copy()
+        if headers:
+            request_headers.update(headers)
         if self.private_key and self.public_key:
             timestamp = str(int(time.time()))
             log.debug('Using timestamp: {}'.format(timestamp))
-            unhashed = path + timestamp + str(data)
+            unhashed = path + timestamp + (payload or '')
             log.debug('Using message: {}'.format(unhashed))
-            self.hash = hmac.new(str.encode(self.private_key),
-                                 msg=unhashed.encode('utf-8'),
-                                 digestmod=hashlib.sha256).hexdigest()
-            log.debug('Authenticating with hash: {}'.format(self.hash))
-            self.headers['X-Public-Key'] = self.public_key
-            self.headers['X-Request-Hash'] = self.hash
-            self.headers['X-Request-Timestamp'] = timestamp
-            auth = False
+            request_hash = hmac.new(
+                str.encode(self.private_key),
+                msg=unhashed.encode('utf-8'),
+                digestmod=hashlib.sha256
+            ).hexdigest()
+            log.debug('Authenticating with HMAC hash.')
+            request_headers['X-Public-Key'] = self.public_key
+            request_headers['X-Request-Hash'] = request_hash
+            request_headers['X-Request-Timestamp'] = timestamp
+            auth = None
         # In case of user credentials authentication
         elif self.username and self.password:
             auth = requests.auth.HTTPBasicAuth(self.username, self.password)
         # Set unlock reason
-        if self.unlock_reason:
-            self.headers['X-Unlock-Reason'] = self.unlock_reason
-            log.info('Unlock Reason: {}'.format(self.unlock_reason))
+        active_unlock_reason = unlock_reason if unlock_reason is not None else self.unlock_reason
+        if active_unlock_reason:
+            request_headers['X-Unlock-Reason'] = active_unlock_reason
+            log.info('Unlock Reason is set.')
         url = head + path
         # Try API request and handle Exceptions
         try:
-            if action == 'get':
-                log.debug('GET request {}'.format(url))
-                self.req = requests.get(url, headers=self.headers, auth=auth,
-                                        verify=False)
-            elif action == 'post':
-                log.debug('POST request {}'.format(url))
-                self.req = requests.post(url, headers=self.headers, auth=auth,
-                                         verify=False, data=data)
-            elif action == 'put':
-                log.debug('PUT request {}'.format(url))
-                self.req = requests.put(url, headers=self.headers,
-                                        auth=auth, verify=False,
-                                        data=data)
-            elif action == 'delete':
-                log.debug('DELETE request {}'.format(url))
-                self.req = requests.delete(url, headers=self.headers,
-                                           verify=False, auth=auth)
-
-            if self.req.content == b'':
-                result = None
-                log.debug('No result returned.')
-            else:
-                result = self.req.json()
-                if 'error' in result and result['error']:
-                    raise TPMException(result['message'])
+            method = action.lower()
+            if method not in ('get', 'post', 'put', 'delete'):
+                raise ValueError('Unsupported request action: {}'.format(action))
+            log.debug('{} request {}'.format(method.upper(), url))
+            self.req = self.session.request(
+                method.upper(),
+                url,
+                headers=request_headers,
+                auth=auth,
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+                data=payload
+            )
 
         except requests.exceptions.RequestException as e:
             log.critical("Connection error for " + str(e))
             raise TPMException("Connection error for " + str(e))
 
+        if self.req.status_code == 403:
+            log.warning(url + " forbidden")
+            raise TPMException(url + " forbidden")
+        if self.req.status_code == 404:
+            log.warning(url + " not found")
+            raise TPMException(url + " not found")
+
+        if self.req.content == b'':
+            log.debug('No result returned.')
+            return None
+
+        try:
+            result = self.req.json()
         except ValueError as e:
-            if self.req.status_code == 403:
-                log.warning(url + " forbidden")
-                raise TPMException(url + " forbidden")
-            elif self.req.status_code == 404:
-                log.warning(url + " forbidden")
-                raise TPMException(url + " not found")
-            else:
-                message = ('{}: {} {}'.format(e, self.req.url, self.req.text))
-                log.debug(message)
-                raise ValueError(message)
+            message = ('{}: {} {}'.format(e, self.req.url, self.req.text))
+            log.debug(message)
+            raise ValueError(message)
+
+        if isinstance(result, dict) and result.get('error'):
+            raise TPMException(result.get('message', 'Unknown TPM API error'))
 
         return result
 
-    def post(self, path, data=''):
+    def post(self, path, data='', headers=None):
         """For post based requests."""
-        return self.request(path, 'post', data)
+        return self.request(path, 'post', data, headers=headers)
 
-    def get(self, path):
+    def get(self, path, headers=None):
         """For get based requests."""
-        return self.request(path, 'get')
+        return self.request(path, 'get', headers=headers)
 
-    def put(self, path, data=''):
+    def put(self, path, data='', headers=None, unlock_reason=None):
         """For put based requests."""
-        return self.request(path, 'put', data)
+        return self.request(path, 'put', data, headers=headers, unlock_reason=unlock_reason)
 
-    def delete(self, path):
+    def delete(self, path, headers=None):
         """For delete based requests."""
-        self.request(path, 'delete')
+        self.request(path, 'delete', headers=headers)
 
-    def get_collection(self, path):
+    def get_collection(self, path, headers=None):
         """To get pagewise data."""
         while True:
-            items = self.get(path)
+            items = self.get(path, headers=headers)
             req = self.req
             for item in items:
                 yield item
-            if req.links and req.links['next'] and\
-                    req.links['next']['rel'] == 'next':
-                path = req.links['next']['url']
+            next_link = req.links.get('next') if req.links else None
+            if next_link and next_link.get('rel') == 'next':
+                path = next_link['url']
             else:
                 break
 
-    def collection(self, path):
+    def collection(self, path, headers=None):
         """To return all items generated by get collection."""
         data = []
-        for item in self.get_collection(path):
+        for item in self.get_collection(path, headers=headers):
             data.append(item)
         return data
 
@@ -364,7 +362,7 @@ class TpmApi(object):
     def create_password(self, data):
         """Create a password."""
         # http://teampasswordmanager.com/docs/api-passwords/#create_password
-        log.info('Create new password {}'.format(data))
+        log.info('Create new password.')
         NewID = self.post('passwords.json', data).get('id')
         log.info('Password has been created with ID {}'.format(NewID))
         return NewID
@@ -372,7 +370,7 @@ class TpmApi(object):
     def update_password(self, ID, data):
         """Update a password."""
         # http://teampasswordmanager.com/docs/api-passwords/#update_password
-        log.info('Update Password {} with {}'.format(ID, data))
+        log.info('Update Password {}'.format(ID))
         self.put('passwords/{}.json'.format(ID), data)
 
     def update_security_of_password(self, ID, data):
@@ -402,9 +400,8 @@ class TpmApi(object):
     def unlock_password(self, ID, reason):
         """Unlock a password."""
         # http://teampasswordmanager.com/docs/api-passwords/#unlock_password
-        log.info('Unlock password {}, Reason: {}'.format(ID, reason))
-        self.unlock_reason = reason
-        self.put('passwords/{}/unlock.json'.format(ID))
+        log.info('Unlock password {}'.format(ID))
+        self.put('passwords/{}/unlock.json'.format(ID), unlock_reason=reason)
 
     def list_mypasswords(self):
         """List my passwords."""
@@ -427,7 +424,7 @@ class TpmApi(object):
     def create_mypassword(self, data):
         """Create my password."""
         # http://teampasswordmanager.com/docs/api-my-passwords/#create_password
-        log.info('Create MyPassword with {}'.format(data))
+        log.info('Create MyPassword.')
         NewID = self.post('my_passwords.json', data).get('id')
         log.info('MyPassword has been created with {}'.format(NewID))
         return NewID
@@ -435,7 +432,7 @@ class TpmApi(object):
     def update_mypassword(self, ID, data):
         """Update my password."""
         # http://teampasswordmanager.com/docs/api-my-passwords/#update_password
-        log.info('Update MyPassword {} with {}'.format(ID, data))
+        log.info('Update MyPassword {}'.format(ID))
         self.put('my_passwords/{}.json'.format(ID), data)
 
     def delete_mypassword(self, ID):
@@ -609,11 +606,11 @@ class TpmApi(object):
         LatestVersion = VersionInfo.get('latest_version')
         if  CurrentVersion == LatestVersion:
             log.info('TeamPasswordManager is up-to-date!')
-            log.debug('Current Version: {} Latest Version: {}'.format(LatestVersion, LatestVersion))
+            log.debug('Current Version: {} Latest Version: {}'.format(CurrentVersion, LatestVersion))
             return True
         else:
             log.warning('TeamPasswordManager is not up-to-date!')
-            log.debug('Current Version: {} Latest Version: {}'.format(LatestVersion, LatestVersion))
+            log.debug('Current Version: {} Latest Version: {}'.format(CurrentVersion, LatestVersion))
             return False
 
 
@@ -654,8 +651,8 @@ class TpmApiv5(TpmApiv4):
     def upload_project_file(self, ID, file, **kwargs):
         """Upload a file to a project."""
         if os.path.isfile(file):
-            file_data = open(file, "rb")
-            encoded = base64.b64encode(file_data.read())
+            with open(file, "rb") as file_data:
+                encoded = base64.b64encode(file_data.read())
             data = { "file_data_base64": encoded.decode('ascii'),
                      "file_name": os.path.basename(file)
             }
@@ -665,7 +662,7 @@ class TpmApiv5(TpmApiv4):
             log.info('File has been uploaded with ID {}'.format(NewID))
             return NewID
         else:
-            raise Exception("File not found: {}".format(file))
+            raise TPMException("File not found: {}".format(file))
 
     def archive_password(self, ID):
         """Archive a password."""
@@ -694,8 +691,8 @@ class TpmApiv5(TpmApiv4):
     def upload_password_file(self, ID, file, **kwargs):
         """Upload a file to a password."""
         if os.path.isfile(file):
-            file_data = open(file, "rb")
-            encoded = base64.b64encode(file_data.read())
+            with open(file, "rb") as file_data:
+                encoded = base64.b64encode(file_data.read())
             data = { "file_data_base64": encoded.decode('ascii'),
                      "file_name": os.path.basename(file)
             }
@@ -705,7 +702,7 @@ class TpmApiv5(TpmApiv4):
             log.info('File has been uploaded with ID {}'.format(NewID))
             return NewID
         else:
-            raise Exception("File not found: {}".format(file))
+            raise TPMException("File not found: {}".format(file))
 
     def move_mypassword(self, ID, PROJECT_ID):
         """Move a mypassword to another project."""
