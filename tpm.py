@@ -774,3 +774,214 @@ class TpmApiv5(TpmApiv4):
         # http://teampasswordmanager.com/docs/api-users/#convert_to_saml
         log.info('Convert User {} to SAML'.format(ID))
         self.put('users/{}/convert_to_saml.json'.format(ID))
+
+
+class TpmApiv6(TpmApiv5):
+    """API v6 based class."""
+    def __init__(self, url, **kwargs):
+        super(TpmApiv4, self).__init__('v6', url, kwargs)
+
+    def _headers(self, metadata_only=False, permissions=False, page_size=None):
+        headers = {}
+        if metadata_only:
+            headers['X-Metadata-Only'] = 'true'
+        if permissions:
+            headers['X-Permissions'] = 'true'
+        if page_size is not None:
+            headers['X-Page-Size'] = str(page_size)
+        return headers or None
+
+    def list_projects(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('projects.json', headers=headers)
+
+    def list_projects_all(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('projects/all.json', headers=headers)
+
+    def list_projects_archived(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('projects/archived.json', headers=headers)
+
+    def list_projects_favorite(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('projects/favorite.json', headers=headers)
+
+    def list_projects_search(self, searchstring, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('projects/search/{}.json'.format(quote_plus(searchstring)), headers=headers)
+
+    def show_project(self, ID, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('projects/{}.json'.format(ID), headers=headers)
+
+    def list_passwords(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('passwords.json', headers=headers)
+
+    def list_passwords_all(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('passwords/all.json', headers=headers)
+
+    def list_passwords_archived(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('passwords/archived.json', headers=headers)
+
+    def list_passwords_favorite(self, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('passwords/favorite.json', headers=headers)
+
+    def list_passwords_search(self, searchstring, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('passwords/search/{}.json'.format(quote_plus(searchstring)), headers=headers)
+
+    def show_password(self, ID, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('passwords/{}.json'.format(ID), headers=headers)
+
+    def list_passwords_of_project(self, ID, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('projects/{}/passwords.json'.format(ID), headers=headers)
+
+    def copy_password(self, ID, PROJECT_ID):
+        log.info('Copy password {} to Project {}'.format(ID, PROJECT_ID))
+        return self.post('passwords/{}/copy.json'.format(ID), data={"project_id": PROJECT_ID}).get('id')
+
+    def duplicate_password(self, ID, NEW_NAME):
+        log.info('Duplicate password {} as {}'.format(ID, NEW_NAME))
+        return self.post('passwords/{}/duplicate.json'.format(ID), data={"new_name": NEW_NAME}).get('id')
+
+    def list_mypasswords(self, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('my_passwords.json', headers=headers)
+
+    def list_mypasswords_archived(self, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('my_passwords/archived.json', headers=headers)
+
+    def list_mypasswords_favorite(self, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('my_passwords/favorite.json', headers=headers)
+
+    def list_mypasswords_search(self, searchstring, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('my_passwords/search/{}.json'.format(quote_plus(searchstring)), headers=headers)
+
+    def show_mypassword(self, ID, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('my_passwords/{}.json'.format(ID), headers=headers)
+
+    def update_custom_fields_of_mypassword(self, ID, data):
+        log.info('Update custom fields of my_password {}'.format(ID))
+        self.put('my_passwords/{}/custom_fields.json'.format(ID), data)
+
+    def archive_mypassword(self, ID):
+        log.info('Archive my_password {}'.format(ID))
+        self.put('my_passwords/{}/archive.json'.format(ID))
+
+    def unarchive_mypassword(self, ID):
+        log.info('Unarchive my_password {}'.format(ID))
+        self.put('my_passwords/{}/unarchive.json'.format(ID))
+
+    def list_mypassword_files(self, ID, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('my_passwords/{}/files.json'.format(ID), headers=headers)
+
+    def upload_mypassword_file(self, ID, file, **kwargs):
+        if os.path.isfile(file):
+            with open(file, "rb") as file_data:
+                encoded = base64.b64encode(file_data.read())
+            data = {
+                "file_data_base64": encoded.decode('ascii'),
+                "file_name": os.path.basename(file),
+            }
+            if 'notes' in kwargs:
+                data['notes'] = kwargs['notes']
+            new_id = self.post('my_passwords/{}/upload.json'.format(ID), data).get('id')
+            log.info('File has been uploaded with ID {}'.format(new_id))
+            return new_id
+        raise TPMException("File not found: {}".format(file))
+
+    def copy_mypassword(self, ID, PROJECT_ID):
+        log.info('Copy my_password {} to project {}'.format(ID, PROJECT_ID))
+        return self.post('my_passwords/{}/copy.json'.format(ID), data={"project_id": PROJECT_ID}).get('id')
+
+    def duplicate_mypassword(self, ID, NEW_NAME):
+        log.info('Duplicate my_password {} as {}'.format(ID, NEW_NAME))
+        return self.post('my_passwords/{}/duplicate.json'.format(ID), data={"new_name": NEW_NAME}).get('id')
+
+    def list_users(self, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('users.json', headers=headers)
+
+    def list_users_search(self, searchstring, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('users/search/{}.json'.format(quote_plus(searchstring)), headers=headers)
+
+    def show_user(self, ID, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('users/{}.json'.format(ID), headers=headers)
+
+    def show_me(self, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('users/me.json', headers=headers)
+
+    def list_passwords_of_user(self, ID, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('users/{}/passwords.json'.format(ID), headers=headers)
+
+    def list_projects_of_user(self, ID, metadata_only=False, permissions=False, page_size=None):
+        headers = self._headers(metadata_only, permissions, page_size)
+        return self.collection('users/{}/projects.json'.format(ID), headers=headers)
+
+    def list_groups(self, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('groups.json', headers=headers)
+
+    def show_group(self, ID, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('groups/{}.json'.format(ID), headers=headers)
+
+    def list_project_files(self, ID, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('projects/{}/files.json'.format(ID), headers=headers)
+
+    def list_password_files(self, ID, metadata_only=False, page_size=None):
+        headers = self._headers(metadata_only=metadata_only, page_size=page_size)
+        return self.collection('passwords/{}/files.json'.format(ID), headers=headers)
+
+    def show_file_info(self, ID, metadata_only=False):
+        headers = self._headers(metadata_only=metadata_only)
+        return self.get('files/{}.json'.format(ID), headers=headers)
+
+    def set_favorite_password(self, ID):
+        log.info('Set password {} as favorite'.format(ID))
+        self.post('favorite_passwords/{}.json'.format(ID))
+
+    def unset_favorite_password(self, ID):
+        log.info('Unset password {} as favorite'.format(ID))
+        self.delete('favorite_passwords/{}.json'.format(ID))
+
+    def set_favorite_mypassword(self, ID):
+        log.info('Set my_password {} as favorite'.format(ID))
+        self.post('favorite_my_passwords/{}.json'.format(ID))
+
+    def unset_favorite_mypassword(self, ID):
+        log.info('Unset my_password {} as favorite'.format(ID))
+        self.delete('favorite_my_passwords/{}.json'.format(ID))
+
+    def set_favorite_project(self, ID):
+        log.info('Set project {} as favorite'.format(ID))
+        self.post('favorite_projects/{}.json'.format(ID))
+
+    def unset_favorite_project(self, ID):
+        log.info('Unset project {} as favorite'.format(ID))
+        self.delete('favorite_projects/{}.json'.format(ID))
+
+    def list_log(self, page_size=None):
+        headers = self._headers(page_size=page_size)
+        return self.collection('log.json', headers=headers)
+
+    def search_log(self, searchstring, page_size=None):
+        headers = self._headers(page_size=page_size)
+        return self.collection('log/search/{}.json'.format(quote_plus(searchstring)), headers=headers)
