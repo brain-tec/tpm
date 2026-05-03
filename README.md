@@ -8,11 +8,13 @@
 [![Python version](https://img.shields.io/pypi/pyversions/tpm.svg)](https://pypi.python.org/pypi/tpm)
 [![license](https://img.shields.io/github/license/peshay/tpm.svg)](https://github.com/peshay/tpm/blob/master/LICENSE)
 
+A Python Module for the [TeamPasswordManager API](http://teampasswordmanager.com/docs/api/)
+
+## Support
+
 [![Support maintenance via bunq](https://img.shields.io/badge/Support-bunq.me-0A6A47?style=flat-square)](https://bunq.me/ahuservices?description=tpm-sdk-maintenance-support)
 
-Voluntary support helps fund ongoing freelance software maintenance for this SDK. It does **not** automatically grant support, feature delivery, consulting, SLA, or invoice-based engagement.
-
-A Python Module for the [TeamPasswordManager API](http://teampasswordmanager.com/docs/api/)
+Voluntary support helps fund ongoing freelance software maintenance for this SDK. It does not automatically grant support, feature delivery, consulting, SLA, or invoice-based engagement.
 
 Requires: requests
 
