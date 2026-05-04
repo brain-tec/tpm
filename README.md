@@ -2,7 +2,7 @@
 
 > Modern Python SDK groundwork for TeamPasswordManager with safer API boundaries and maintainable packaging.
 
-[![Build Status](https://travis-ci.org/peshay/tpm.svg?branch=master)](https://travis-ci.org/peshay/tpm)
+[![CI](https://github.com/peshay/tpm/actions/workflows/ci.yml/badge.svg)](https://github.com/peshay/tpm/actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/pypi/pyversions/tpm.svg)](https://pypi.python.org/pypi/tpm)
 [![license](https://img.shields.io/github/license/peshay/tpm.svg)](https://github.com/peshay/tpm/blob/master/LICENSE)
 
