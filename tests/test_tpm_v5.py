@@ -1,4 +1,3 @@
-import requests
 import requests_mock
 import unittest
 import os.path
@@ -8,7 +7,6 @@ import logging
 import hmac
 import hashlib
 import time
-import random
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +22,7 @@ def fake_data(url, m, altpath=False):
     """
     # Map path from url to a file
     path_parts = url.split('/')[6:]
-    if altpath == False:
+    if not altpath:
         path = '/'.join(path_parts)
     else:
         path = altpath
@@ -920,12 +918,12 @@ class GeneralClientTestCases(unittest.TestCase):
         request_path = local_path + path_to_mock
         resource_file = os.path.normpath(request_path)
         data_file = open(resource_file)
-        data = json.load(data_file)
+        json.load(data_file)
         unlock_reason = 'because I can'
         client = tpm.TpmApiv5('https://tpm.example.com', username='USER', password='PASS', unlock_reason=unlock_reason)
         with requests_mock.Mocker() as m:
             m.get(request_url, request_headers={'X-Unlock-Reason': unlock_reason})
-            response = client.show_password('14')
+            client.show_password('14')
             history = m.request_history
             request_unlock_reason = history[0].headers.get('X-Unlock-Reason')
         self.assertEqual(request_unlock_reason, unlock_reason)
@@ -939,12 +937,12 @@ class GeneralClientTestCases(unittest.TestCase):
         request_url = api_url + path_to_mock
         with requests_mock.Mocker() as m:
             fake_data(request_url, m)
-            response = client.get_version()
+            client.get_version()
             history = m.request_history
         request_hash = history[0].headers.get('X-Request-Hash')
-        request_pubkey = history[0].headers.get('X-Public-Key')
+        history[0].headers.get('X-Public-Key')
         request_timestamp = history[0].headers.get('X-Request-Timestamp')
-        timestamp = str(int(time.time()))
+        str(int(time.time()))
         unhashed = 'api/v5/' + path_to_mock + request_timestamp
         hashed = hmac.new(str.encode(private_key),
                              msg=unhashed.encode('utf-8'),
@@ -1011,7 +1009,7 @@ class GeneralClientTestCases(unittest.TestCase):
         request_path = local_path + path_to_mock
         resource_file = os.path.normpath(request_path)
         data_file = open(resource_file)
-        data = json.load(data_file)
+        json.load(data_file)
         with requests_mock.Mocker() as m:
             fake_data(request_url, m)
             response_up_to_date_true = self.client.up_to_date()
@@ -1089,7 +1087,7 @@ class ExceptionOnRequestsTestCases(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             with requests_mock.Mocker() as m:
                 m.get(request_url, text=str(data))
-                response = self.client.show_password('value_error')
+                self.client.show_password('value_error')
         log.debug("context exception: {}".format(context.exception))
         self.assertTrue(str(context.exception).startswith(exception_error) or str(context.exception).startswith(exception_error3))
 
@@ -1102,7 +1100,7 @@ class ExceptionOnRequestsTestCases(unittest.TestCase):
         with self.assertRaises(tpm.TPMException) as context:
             with requests_mock.Mocker() as m:
                 m.get(request_url, json=error_json)
-                response = self.client.show_password('json_error')
+                self.client.show_password('json_error')
         log.debug("context exception: {}".format(context.exception))
         self.assertTrue(exception_error in str(context.exception))
 
@@ -1114,7 +1112,7 @@ class ExceptionOnRequestsTestCases(unittest.TestCase):
         with self.assertRaises(tpm.TPMException) as context:
             with requests_mock.Mocker() as m:
                 m.get(request_url, text='forbidden', status_code=403)
-                response = self.client.list_passwords()
+                self.client.list_passwords()
         log.debug("context exception: {}".format(context.exception))
         self.assertTrue(exception_error in str(context.exception))
 
@@ -1126,7 +1124,7 @@ class ExceptionOnRequestsTestCases(unittest.TestCase):
         with self.assertRaises(tpm.TPMException) as context:
             with requests_mock.Mocker() as m:
                 m.get(request_url, text='not found', status_code=404)
-                response = self.client.list_passwords()
+                self.client.list_passwords()
         log.debug("context exception: {}".format(context.exception))
         self.assertTrue(exception_error in str(context.exception))
 
@@ -1138,7 +1136,7 @@ class ExceptionOnRequestsTestCases(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             with requests_mock.Mocker() as m:
                 m.get(request_url, text='Method Not Allowed', status_code=405)
-                response = self.client.list_passwords()
+                self.client.list_passwords()
         log.debug("context exception: {}".format(context.exception))
         self.assertTrue(str(context.exception).endswith(exception_error))
 
