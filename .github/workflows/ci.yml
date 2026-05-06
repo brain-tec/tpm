@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   test:
@@ -39,6 +40,7 @@ jobs:
         run: pytest --cov=tpm --cov-report=xml tests/
 
       - name: Upload coverage
+        if: github.event_name == 'push'
         uses: codecov/codecov-action@v4
         with:
           use_oidc: true
