@@ -6,13 +6,13 @@ To simplify usage of Team Password Manager API.
 You can authenticate with username and password
     >>> import tpm
     >>> URL = "https://mypasswordmanager.example.com"
-    >>> USER = 'MyUser'
-    >>> PASS = 'Secret'
+    >>> USER = 'example-user'
+    >>> PASS = 'EXAMPLE_PASSWORD'
     >>> tpmconn = tpm.TpmApiv5(URL, username=USER, password=PASS)
 
 Or with Private/Public Key
-    >>> pubkey = '3726d93f2a0e5f0fe2cc3a6e9e3ade964b43b07f897d579466c28b7f8ff51cd0'
-    >>> privkey = '87324bedead51af96a45271d217b8ad5ef3f220da6c078a9bce4e4318729189c'
+    >>> pubkey = 'EXAMPLE_PUBLIC_KEY'
+    >>> privkey = 'EXAMPLE_PRIVATE_KEY'
     >>> tpmconn = tpm.TpmApiv5(URL, private_key=privkey, public_key=pubkey)
 
 With the connection object you can use all TPM functions, like list all passwords:

@@ -27,8 +27,8 @@ This is an example how you can use it in a python script
 import tpm
 # create a object for the connection settings
 URL = "https://mypasswordmanager.example.com"
-USER = 'MyUser'
-PASS = 'Secret'
+USER = 'example-user'
+PASS = 'EXAMPLE_PASSWORD'
 tpmconn = tpm.TpmApiv5(URL, username=USER, password=PASS)
 
 # get a dictionary for all password entries
@@ -45,8 +45,8 @@ You can also use Private/Public Key authentication
 import tpm
 # create a object for the connection settings
 URL = "https://mypasswordmanager.example.com"
-pubkey = '3726d93f2a0e5f0fe2cc3a6e9e3ade964b43b07f897d579466c28b7f8ff51cd0'
-privkey = '87324bedead51af96a45271d217b8ad5ef3f220da6c078a9bce4e4318729189c'
+pubkey = 'EXAMPLE_PUBLIC_KEY'
+privkey = 'EXAMPLE_PRIVATE_KEY'
 tpmconn = tpm.TpmApiv5(URL, private_key=privkey, public_key=pubkey)
 
 # get a dictionary for all password entries
@@ -61,6 +61,25 @@ If you always want to unlock entries that are locked, you can specify an unlock 
 ```python
 tpmconn = tpm.TpmApiv5(URL, username=USER, password=PASS, unlock_reason="Because I can!")
 ```
+
+
+## Development artifact guard
+
+This repository uses pre-commit to keep public artifacts safe to publish.
+Install the hook once after cloning:
+
+```sh
+python3 -m pip install pre-commit
+pre-commit install --install-hooks
+```
+
+Before opening a PR, run:
+
+```sh
+pre-commit run --all-files
+```
+
+The guard blocks accidental literal backslash-n text where real line breaks belong, local machine paths, internal workflow details, and obvious secret or auth-token values. Replace real values with placeholders or environment-variable references before publishing.
 
 ## Logging
 
