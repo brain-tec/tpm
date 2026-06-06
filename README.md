@@ -3,10 +3,12 @@
 > Modern Python SDK groundwork for TeamPasswordManager with safer API boundaries and maintainable packaging.
 
 [![CI](https://github.com/peshay/tpm/actions/workflows/ci.yml/badge.svg)](https://github.com/peshay/tpm/actions/workflows/ci.yml)
-[![Python version](https://img.shields.io/pypi/pyversions/tpm.svg)](https://pypi.python.org/pypi/tpm)
-[![license](https://img.shields.io/github/license/peshay/tpm.svg)](https://github.com/peshay/tpm/blob/master/LICENSE)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=peshay_tpm&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=peshay_tpm)
+[![PyPI version](https://img.shields.io/pypi/v/tpm)](https://pypi.org/project/tpm/)
+[![Python version](https://img.shields.io/pypi/pyversions/tpm)](https://pypi.org/project/tpm/)
+[![License](https://img.shields.io/github/license/peshay/tpm)](LICENSE)
 
-[![Support maintenance via bunq](https://img.shields.io/badge/Support-bunq.me-0A6A47?style=flat-square)](https://bunq.me/ahuservices?description=tpm-sdk-maintenance-support)
+[![Support via bunq](https://img.shields.io/badge/Support-bunq-00A1E0?style=flat-square&logo=bunq&logoColor=white)](https://bunq.me/ahuservices?description=tpm-maintenance-support)
 
 A Python Module for the [TeamPasswordManager API](http://teampasswordmanager.com/docs/api/)
 
@@ -308,6 +310,8 @@ set_favorite_project(ID)
 
 unset_favorite_project(ID)
 
+> Note: `TpmApiv6` overrides these two to use the v6 endpoint `favorite_projects/{ID}.json` (plural); earlier versions use `favorite_project/{ID}.json`.
+
 #### (since v6) [Set Favorite MyPassword](http://teampasswordmanager.com/docs/api-favorites/#set_fav)
 
 set_favorite_mypassword(ID)
@@ -476,6 +480,13 @@ list_log()
 
 list_log_search(searchstring)
 
+## Governance
+
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- AI-agent guide: [AGENTS.md](AGENTS.md)
+- License: [LICENSE](LICENSE)
+
 ## Support
 
-Voluntary support helps fund ongoing freelance software maintenance for this SDK. It does not automatically grant support, feature delivery, consulting, SLA, or invoice-based engagement.
+If this Python SDK is useful to you, you can [support its ongoing maintenance via bunq](https://bunq.me/ahuservices?description=tpm-maintenance-support). Support is voluntary and appreciated, but does not create any entitlement to support, features, consulting, an SLA, or invoice-based work.

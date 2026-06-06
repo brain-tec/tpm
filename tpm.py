@@ -34,8 +34,9 @@ import json
 import logging
 import re
 import time
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 from urllib.parse import quote_plus
 
 import requests
@@ -196,18 +197,18 @@ class TpmApi:
         except ValueError as e:
             if self.req.status_code == 403:
                 log.warning(f'{url} forbidden')
-                raise TPMException(f'{url} forbidden')
+                raise TPMException(f'{url} forbidden') from e
             elif self.req.status_code == 404:
-                log.warning(f'{url} forbidden')
-                raise TPMException(f'{url} not found')
+                log.warning(f'{url} not found')
+                raise TPMException(f'{url} not found') from e
             else:
                 message = f'{e}: {self.req.url} {self.req.text}'
                 log.debug(message)
-                raise ValueError(message)
+                raise ValueError(message) from e
 
         except requests.exceptions.RequestException as e:
             log.critical(f'Connection error for {e}')
-            raise TPMException(f'Connection error for {e}')
+            raise TPMException(f'Connection error for {e}') from e
 
         return result
 
@@ -612,10 +613,9 @@ class TpmApi:
             log.info('TeamPasswordManager is up-to-date!')
             log.debug(f'Current Version: {LatestVersion} Latest Version: {LatestVersion}')
             return True
-        else:
-            log.warning('TeamPasswordManager is not up-to-date!')
-            log.debug(f'Current Version: {LatestVersion} Latest Version: {LatestVersion}')
-            return False
+        log.warning('TeamPasswordManager is not up-to-date!')
+        log.debug(f'Current Version: {LatestVersion} Latest Version: {LatestVersion}')
+        return False
 
 
 class TpmApiv3(TpmApi):
@@ -657,22 +657,25 @@ class TpmApiv5(TpmApiv4):
         """List files of a project."""
         return self.collection(f'projects/{ID}/files.json')
 
+    def _upload_file(self, upload_path: str, file: str, **kwargs) -> Any:
+        """Base64-encode a local file and upload it to the given API path."""
+        path = Path(file)
+        if not path.is_file():
+            raise FileNotFoundError(f'File not found: {file}')
+        encoded = base64.b64encode(path.read_bytes())
+        data = {
+            "file_data_base64": encoded.decode('ascii'),
+            "file_name": path.name,
+        }
+        if 'notes' in kwargs:
+            data['notes'] = kwargs['notes']
+        NewID = self.post(upload_path, data).get('id')
+        log.info(f'File has been uploaded with ID {NewID}')
+        return NewID
+
     def upload_project_file(self, ID: int, file: str, **kwargs) -> Any:
         """Upload a file to a project."""
-        path = Path(file)
-        if path.is_file():
-            encoded = base64.b64encode(path.read_bytes())
-            data = {
-                "file_data_base64": encoded.decode('ascii'),
-                "file_name": path.name,
-            }
-            if 'notes' in kwargs:
-                data['notes'] = kwargs['notes']
-            NewID = self.post(f'projects/{ID}/upload.json', data).get('id')
-            log.info(f'File has been uploaded with ID {NewID}')
-            return NewID
-        else:
-            raise Exception(f'File not found: {file}')
+        return self._upload_file(f'projects/{ID}/upload.json', file, **kwargs)
 
     def archive_password(self, ID: int) -> None:
         """Archive a password."""
@@ -700,20 +703,7 @@ class TpmApiv5(TpmApiv4):
 
     def upload_password_file(self, ID: int, file: str, **kwargs) -> Any:
         """Upload a file to a password."""
-        path = Path(file)
-        if path.is_file():
-            encoded = base64.b64encode(path.read_bytes())
-            data = {
-                "file_data_base64": encoded.decode('ascii'),
-                "file_name": path.name,
-            }
-            if 'notes' in kwargs:
-                data['notes'] = kwargs['notes']
-            NewID = self.post(f'passwords/{ID}/upload.json', data).get('id')
-            log.info(f'File has been uploaded with ID {NewID}')
-            return NewID
-        else:
-            raise Exception(f'File not found: {file}')
+        return self._upload_file(f'passwords/{ID}/upload.json', file, **kwargs)
 
     def move_mypassword(self, ID: int, PROJECT_ID: int) -> Any:
         """Move a mypassword to another project."""
@@ -843,3 +833,15 @@ class TpmApiv6(TpmApiv5):
         # http://teampasswordmanager.com/docs/api-favorites/#del_fav
         log.info(f'Unset my_password {ID} as favorite')
         self.delete(f'favorite_my_passwords/{ID}.json')
+
+    def set_favorite_project(self, ID: int) -> None:
+        """Set a project as favorite (v6 uses the plural endpoint)."""
+        # http://teampasswordmanager.com/docs/api-favorites/#set_fav
+        log.info(f'Set project {ID} as favorite')
+        self.post(f'favorite_projects/{ID}.json')
+
+    def unset_favorite_project(self, ID: int) -> None:
+        """Unset a project as favorite (v6 uses the plural endpoint)."""
+        # http://teampasswordmanager.com/docs/api-favorites/#del_fav
+        log.info(f'Unset project {ID} as favorite')
+        self.delete(f'favorite_projects/{ID}.json')
